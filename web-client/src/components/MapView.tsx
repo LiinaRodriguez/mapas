@@ -6,6 +6,7 @@ import { useLayers } from '../hooks/useLayers';
 import { exportMapToPdf } from '../utils/exportPdf';
 import { exportGeoTiff } from '../utils/exportGeoTiff';
 
+
 export function MapView() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -21,25 +22,26 @@ export function MapView() {
       style: {
         version: 8,
         sources: {
-          'osm-tiles': {
+          'google-satellite': {
             type: 'raster',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tiles: ['https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'],
             tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          },
+            attribution: '© Google Maps',
+            minzoom: 5,
+            maxzoom: 22
+          }
         },
         layers: [
           {
-            id: 'osm-tiles',
+            id: 'google-layer',
             type: 'raster',
-            source: 'osm-tiles',
-            minzoom: 0,
-            maxzoom: 19,
-          },
-        ],
+            source: 'google-satellite',
+            paint: { 'raster-opacity': 1 }
+          }
+        ]
       },
-      center: [-73.1, 3.8],
-      zoom: 6,
+      center: [-73.2458, 3.7125],
+      zoom: 12,
       preserveDrawingBuffer: true,
     } as any);
 
@@ -82,6 +84,7 @@ export function MapView() {
       mapRef.current = null;
     };
   }, []);
+
 
   const syncLayers = useCallback(async (map: maplibregl.Map) => {
     if (!map.isStyleLoaded()) return;
@@ -263,6 +266,7 @@ export function MapView() {
     <div style={{ position: 'relative', flex: 1, height: '100%', display: 'flex' }}>
       <div ref={mapContainer} className="map-container" id="map-view" style={{ height: '100%', width: '100%' }} />
 
+
       {layersLoading && (
         <div style={{
           position: 'absolute',
@@ -304,3 +308,4 @@ function extractCoords(geometry: any): number[][] {
   }
   return [];
 }
+
