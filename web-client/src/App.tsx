@@ -1,5 +1,6 @@
 import { useAuth } from './hooks/useAuth';
 import { useStore } from './store/useStore';
+import { useLayerLoader } from './hooks/useLayers';
 import { LoginForm } from './components/LoginForm';
 import { RegisterForm } from './components/RegisterForm';
 import { Header } from './components/Header';
@@ -16,6 +17,7 @@ function App() {
   const activeProjectId = useStore((s) => s.activeProjectId);
   const setActiveProjectId = useStore((s) => s.setActiveProjectId);
   const [isDocs, setIsDocs] = useState(window.location.hash.startsWith('#docs'));
+  useLayerLoader(isAuthenticated);
 
   useEffect(() => {
     const handleHash = () => {
