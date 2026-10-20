@@ -4,7 +4,6 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-import fiona
 import geopandas as gpd
 from fastapi import UploadFile
 
@@ -84,8 +83,6 @@ def _process_zip(zip_path: str, tmpdir: str) -> dict:
 
 
 def _process_kml(kml_path: str, original_name: str) -> dict:
-    fiona.drvsupport.supported_drivers["KML"] = "rw"
-
     gdf = gpd.read_file(kml_path, driver="KML")
     return _to_result(gdf, original_name, "kml")
 
@@ -110,7 +107,6 @@ def export_layer(geojson: dict, nombre: str, formato: str, tmpdir: str) -> tuple
         return path, "application/geo+json"
 
     if formato == "kml":
-        fiona.drvsupport.supported_drivers["KML"] = "rw"
         path = os.path.join(tmpdir, f"{safe}.kml")
         gdf.to_file(path, driver="KML")
         return path, "application/vnd.google-earth.kml+xml"

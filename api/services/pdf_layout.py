@@ -280,15 +280,18 @@ def _draw_grid(c, layout: Layout, p: PDFExportPayload, proj: FrameProjector):
     clip = c.beginPath()
     clip.rect(f.x * mm, f.y * mm, f.w * mm, f.h * mm)
     c.clipPath(clip, stroke=0, fill=0)
-    c.setLineWidth(0.35)
-    c.setStrokeColor(Color(1, 1, 1, alpha=0.75))
-    c.setDash(2, 2)
-    for _, _, pts in lines:
-        path = c.beginPath()
-        path.moveTo(pts[0][0] * mm, pts[0][1] * mm)
-        for x, y in pts[1:]:
-            path.lineTo(x * mm, y * mm)
-        c.drawPath(path, stroke=1, fill=0)
+    # A dark solid line under a light dashed one keeps the grid readable on any basemap.
+    for width, color, dash in ((0.6, Color(0.1, 0.1, 0.1, alpha=0.45), None), (0.35, Color(1, 1, 1, alpha=0.85), (2, 2))):
+        c.setLineWidth(width)
+        c.setStrokeColor(color)
+        if dash:
+            c.setDash(*dash)
+        for _, _, pts in lines:
+            path = c.beginPath()
+            path.moveTo(pts[0][0] * mm, pts[0][1] * mm)
+            for x, y in pts[1:]:
+                path.lineTo(x * mm, y * mm)
+            c.drawPath(path, stroke=1, fill=0)
     c.restoreState()
 
     c.setLineWidth(0.3)
