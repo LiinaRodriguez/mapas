@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.core.config import get_settings
 from api.core.database import engine
+from api.core.migrations import run_migrations
 from api.models import Base
-from api.routes import auth, proyectos, capas
+from api.routes import auth, proyectos, capas, exportar
 
 settings = get_settings()
 
@@ -27,11 +28,13 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(proyectos.router, prefix="/api")
 app.include_router(capas.router, prefix="/api")
+app.include_router(exportar.router, prefix="/api")
 
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
 
 
 @app.get("/api/health")

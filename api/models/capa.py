@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
+from sqlalchemy import Boolean, Column, Float, Integer, String, DateTime, ForeignKey, Table
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, deferred
@@ -10,6 +10,9 @@ proyecto_capa_association = Table(
     Base.metadata,
     Column("proyecto_id", Integer, ForeignKey("proyectos.id", ondelete="CASCADE"), primary_key=True),
     Column("capa_id", Integer, ForeignKey("capas.id", ondelete="CASCADE"), primary_key=True),
+    Column("orden", Integer, nullable=False, server_default="0"),
+    Column("visible", Boolean, nullable=False, server_default="true"),
+    Column("opacidad", Float, nullable=False, server_default="1"),
 )
 
 
@@ -31,6 +34,16 @@ LAYER_COLORS = [
 def get_next_color(existing_count: int) -> str:
     return LAYER_COLORS[existing_count % len(LAYER_COLORS)]
 
+
+def default_style(color: str) -> dict:
+    return {
+        "fillColor": color,
+        "strokeColor": color,
+        "strokeWidth": 2,
+        "fillOpacity": 0.25,
+        "rule": None,
+    }
+
 class Capa(Base):
     __tablename__ = "capas"
 
@@ -43,6 +56,8 @@ class Capa(Base):
     datos_geojson = deferred(Column(JSONB, nullable=False))
     tipo_archivo = Column(String) 
     color = Column(String, nullable=False, default="#3b82f6")
+    estilo = Column(JSONB, nullable=True)
+    bounds = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     usuario = relationship("Usuario", back_populates="capas")

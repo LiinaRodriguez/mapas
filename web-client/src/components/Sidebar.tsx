@@ -3,6 +3,7 @@ import { LayerList } from './LayerList';
 import { FileUpload } from './FileUpload';
 import { LayerLibrary } from './LayerLibrary';
 import { ExportModal } from './ExportModal';
+import { RasterPanel } from './RasterPanel';
 import { useStore } from '../store/useStore';
 import { Layers, Library, Share } from 'lucide-react';
 import { useLayers } from '../hooks/useLayers';
@@ -65,6 +66,7 @@ export function Sidebar() {
 
             <FileUpload />
             <LayerList />
+            <RasterPanel />
           </div>
         )}
       </aside>

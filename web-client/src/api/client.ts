@@ -1,5 +1,6 @@
+import type { FeatureCollection } from 'geojson';
 import axios from 'axios';
-import type { User, Project, Layer, TokenResponse } from '../types';
+import type { User, Project, Layer, LayerStyle, TokenResponse, MapFrame, PDFExportPayload, PaperSize, Orientation } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -117,9 +118,38 @@ export async function unlinkCapaFromProyecto(proyectoId: number, capaId: number)
 
 export async function updateCapa(
   id: number,
-  data: { nombre_personalizado?: string; color?: string }
+  data: { nombre_personalizado?: string; color?: string; estilo?: LayerStyle }
 ): Promise<Layer> {
   const res = await api.patch(`/capas/${id}`, data);
+  return res.data;
+}
+
+export async function updateProyectoCapa(
+  proyectoId: number,
+  capaId: number,
+  data: { visible?: boolean; opacidad?: number }
+): Promise<Layer> {
+  const res = await api.patch(`/proyectos/${proyectoId}/capas/${capaId}`, data);
+  return res.data;
+}
+
+export async function reorderProyectoCapas(proyectoId: number, capaIds: number[]): Promise<Layer[]> {
+  const res = await api.put(`/proyectos/${proyectoId}/capas/orden`, { capa_ids: capaIds });
+  return res.data;
+}
+
+export async function downloadCapa(id: number, formato: 'geojson' | 'kml' | 'shp'): Promise<Blob> {
+  const res = await api.get(`/capas/${id}/descargar`, { params: { formato }, responseType: 'blob' });
+  return res.data;
+}
+
+export async function getMapFrame(paperSize: PaperSize, orientation: Orientation, dpi: number): Promise<MapFrame> {
+  const res = await api.get('/exportar/marco', { params: { paperSize, orientation, dpi } });
+  return res.data;
+}
+
+export async function exportPdf(payload: PDFExportPayload): Promise<Blob> {
+  const res = await api.post('/exportar/pdf', payload, { responseType: 'blob' });
   return res.data;
 }
 
@@ -127,7 +157,7 @@ export async function deleteCapaPermanently(id: number): Promise<void> {
   await api.delete(`/capas/${id}`);
 }
 
-export async function getCapaGeoJson(id: number): Promise<any> {
+export async function getCapaGeoJson(id: number): Promise<FeatureCollection> {
   const res = await api.get(`/capas/${id}/geojson`);
   return res.data;
 }

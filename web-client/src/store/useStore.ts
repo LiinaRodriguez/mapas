@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import type { User, Project, Layer } from '../types';
+import type {
+  User, Project, Layer, BasemapId, MapTool, CoordinateFormat, RasterLayer, AttributeFilter,
+} from '../types';
 
 interface AppState {
   user: User | null;
@@ -8,10 +10,18 @@ interface AppState {
   projects: Project[];
   activeProjectId: number | null;
 
+  /** Project layers, index 0 is drawn on top. */
   layers: Layer[];
-  visibleLayerIds: Set<number>;
 
   libraryLayers: Layer[];
+  layersLoading: boolean;
+
+  basemap: BasemapId;
+  activeTool: MapTool;
+  coordinateFormat: CoordinateFormat;
+  rasterLayers: RasterLayer[];
+  attributeLayerId: number | null;
+  attributeFilters: Record<number, AttributeFilter>;
 
   authView: 'login' | 'register';
   isUploading: boolean;
@@ -32,18 +42,30 @@ interface AppState {
   addLayer: (layer: Layer) => void;
   removeLayer: (id: number) => void;
   updateLayer: (layer: Layer) => void;
-  toggleLayerVisibility: (id: number) => void;
-  setAllVisible: () => void;
+  patchLayer: (id: number, patch: Partial<Layer>) => void;
+  reorderLayers: (ids: number[]) => void;
 
+  setLayersLoading: (v: boolean) => void;
   setLibraryLayers: (layers: Layer[]) => void;
   addToLibrary: (layer: Layer) => void;
   removeFromLibrary: (id: number) => void;
 
   setIsUploading: (v: boolean) => void;
   setUploadProgress: (v: number) => void;
+
+  setBasemap: (id: BasemapId) => void;
+  setActiveTool: (tool: MapTool) => void;
+  setCoordinateFormat: (format: CoordinateFormat) => void;
+  addRasterLayer: (layer: RasterLayer) => void;
+  updateRasterLayer: (id: string, patch: Partial<RasterLayer>) => void;
+  removeRasterLayer: (id: string) => void;
+  setAttributeLayerId: (id: number | null) => void;
+  setAttributeFilter: (id: number, filter: AttributeFilter | null) => void;
 }
 
-export const useStore = create<AppState>((set, _get) => ({
+const withProjectDefaults = (layer: Layer): Layer => ({ visible: true, opacidad: 1, ...layer });
+
+export const useStore = create<AppState>((set) => ({
   user: null,
   token: localStorage.getItem('access_token'),
   projects: [],
@@ -56,8 +78,14 @@ export const useStore = create<AppState>((set, _get) => ({
     return null;
   })(),
   layers: [],
-  visibleLayerIds: new Set(),
   libraryLayers: [],
+  layersLoading: false,
+  basemap: 'satellite',
+  activeTool: 'none',
+  coordinateFormat: 'decimal',
+  rasterLayers: [],
+  attributeLayerId: null,
+  attributeFilters: {},
   authView: 'login',
   isUploading: false,
   uploadProgress: 0,
@@ -81,14 +109,24 @@ export const useStore = create<AppState>((set, _get) => ({
       projects: [],
       activeProjectId: null,
       layers: [],
-      visibleLayerIds: new Set(),
       libraryLayers: [],
+      rasterLayers: [],
+      attributeLayerId: null,
+      attributeFilters: {},
     });
   },
   setAuthView: (authView) => set({ authView }),
 
   setProjects: (projects) => set({ projects }),
-  setActiveProjectId: (id) => set({ activeProjectId: id, layers: [], visibleLayerIds: new Set() }),
+  setActiveProjectId: (id) =>
+    set({
+      activeProjectId: id,
+      layers: [],
+      rasterLayers: [],
+      attributeLayerId: null,
+      attributeFilters: {},
+      activeTool: 'none',
+    }),
   addProject: (project) => set((s) => ({ projects: [project, ...s.projects] })),
   removeProject: (id) =>
     set((s) => ({
@@ -101,52 +139,46 @@ export const useStore = create<AppState>((set, _get) => ({
       projects: s.projects.map((p) => (p.id === project.id ? project : p)),
     })),
 
-  setLayers: (layers) => {
-    const ids = new Set(layers.map((l) => l.id));
-    set({ layers, visibleLayerIds: ids });
-  },
+  setLayers: (layers) => set({ layers: layers.map(withProjectDefaults) }),
   addLayer: (layer) =>
     set((s) => {
       if (s.layers.some((l) => l.id === layer.id)) return s;
-
-      const newVisible = new Set(s.visibleLayerIds);
-      newVisible.add(layer.id);
-      const inLibrary = s.libraryLayers.some(l => l.id === layer.id);
-      return { 
-        layers: [...s.layers, layer], 
-        visibleLayerIds: newVisible,
-        libraryLayers: inLibrary ? s.libraryLayers : [layer, ...s.libraryLayers]
+      const inLibrary = s.libraryLayers.some((l) => l.id === layer.id);
+      return {
+        layers: [withProjectDefaults(layer), ...s.layers],
+        libraryLayers: inLibrary ? s.libraryLayers : [layer, ...s.libraryLayers],
       };
     }),
   removeLayer: (id) =>
-    set((s) => {
-      const newVisible = new Set(s.visibleLayerIds);
-      newVisible.delete(id);
-      return {
-        layers: s.layers.filter((l) => l.id !== id),
-        visibleLayerIds: newVisible,
-      };
-    }),
+    set((s) => ({
+      layers: s.layers.filter((l) => l.id !== id),
+      attributeLayerId: s.attributeLayerId === id ? null : s.attributeLayerId,
+    })),
   updateLayer: (layer) =>
     set((s) => ({
-      layers: s.layers.map((l) => (l.id === layer.id ? { ...l, ...layer } : l)),
+      // Library responses carry no project fields (visible, opacidad): keep the local ones.
+      layers: s.layers.map((l) =>
+        l.id === layer.id
+          ? { ...l, ...layer, visible: layer.visible ?? l.visible, opacidad: layer.opacidad ?? l.opacidad }
+          : l
+      ),
       libraryLayers: s.libraryLayers.map((l) => (l.id === layer.id ? { ...l, ...layer } : l)),
     })),
-  toggleLayerVisibility: (id) =>
-    set((s) => {
-      const newVisible = new Set(s.visibleLayerIds);
-      if (newVisible.has(id)) {
-        newVisible.delete(id);
-      } else {
-        newVisible.add(id);
-      }
-      return { visibleLayerIds: newVisible };
-    }),
-  setAllVisible: () =>
+  patchLayer: (id, patch) =>
     set((s) => ({
-      visibleLayerIds: new Set(s.layers.map((l) => l.id)),
+      layers: s.layers.map((l) => (l.id === id ? { ...l, ...patch } : l)),
     })),
+  reorderLayers: (ids) =>
+    set((s) => {
+      const byId = new Map(s.layers.map((l) => [l.id, l]));
+      const ordered = ids.flatMap((id, orden) => {
+        const layer = byId.get(id);
+        return layer ? [{ ...layer, orden }] : [];
+      });
+      return { layers: ordered };
+    }),
 
+  setLayersLoading: (layersLoading) => set({ layersLoading }),
   setLibraryLayers: (libraryLayers) => set({ libraryLayers }),
   addToLibrary: (layer) => set((s) => ({ libraryLayers: [layer, ...s.libraryLayers] })),
   removeFromLibrary: (id) =>
@@ -157,4 +189,20 @@ export const useStore = create<AppState>((set, _get) => ({
 
   setIsUploading: (isUploading) => set({ isUploading }),
   setUploadProgress: (uploadProgress) => set({ uploadProgress }),
+
+  setBasemap: (basemap) => set({ basemap }),
+  setActiveTool: (activeTool) => set({ activeTool }),
+  setCoordinateFormat: (coordinateFormat) => set({ coordinateFormat }),
+  addRasterLayer: (layer) => set((s) => ({ rasterLayers: [layer, ...s.rasterLayers] })),
+  updateRasterLayer: (id, patch) =>
+    set((s) => ({ rasterLayers: s.rasterLayers.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
+  removeRasterLayer: (id) => set((s) => ({ rasterLayers: s.rasterLayers.filter((r) => r.id !== id) })),
+  setAttributeLayerId: (attributeLayerId) => set({ attributeLayerId }),
+  setAttributeFilter: (id, filter) =>
+    set((s) => {
+      const next = { ...s.attributeFilters };
+      if (filter) next[id] = filter;
+      else delete next[id];
+      return { attributeFilters: next };
+    }),
 }));

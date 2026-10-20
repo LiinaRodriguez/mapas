@@ -6,8 +6,12 @@ pydantic[email]==2.*
 pydantic-settings==2.7.*
 python-multipart==0.0.*
 geopandas==1.0.*
-fiona==1.10.*
+pyogrio==0.*
 python-dotenv==1.1.*
-passlib[bcrypt]==3.2.2
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 python-jose[cryptography]==3.3.*
-
+pyproj==3.7.*
+reportlab==4.*
+pypdf==5.*
+Pillow>=10

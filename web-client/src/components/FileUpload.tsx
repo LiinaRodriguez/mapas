@@ -22,9 +22,9 @@ export function FileUpload() {
       try {
         await upload(file);
         setStatus('success');
-      } catch (err: any) {
+      } catch (err) {
         setStatus('error');
-        setError(err.message || 'Error al procesar el archivo');
+        setError(err instanceof Error ? err.message : 'Error al procesar el archivo');
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -38,7 +38,7 @@ export function FileUpload() {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".zip,.kml"
+        accept=".zip,.kml,.geojson,.json"
         style={{ display: 'none' }}
         id="file-input"
       />
@@ -79,7 +79,7 @@ export function FileUpload() {
         }}>
           <Upload size={16} color="var(--accent)" />
         </div>
-        Subir SHP o KML
+        Subir SHP, KML o GeoJSON
       </button>
 
       {showModal && (
